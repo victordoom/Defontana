@@ -1,0 +1,104 @@
+/* CONSULTAS SQL*/
+/*  Ventas de los ultimos n dias en este caso 30 dias */
+SELECT *
+FROM Venta
+WHERE Fecha >= '2023-05-14'
+
+SELECT SUM(Total) 
+FROM Venta
+WHERE Fecha >= '2023-05-14'
+
+/*El total de ventas de los últimos 30 días (monto total y cantidad total de ventas) */
+WITH Totales AS (
+    SELECT SUM(V.Total) AS SumaTotalVentas
+    FROM Venta V
+    WHERE V.Fecha >= '2023-05-14'
+), CantidadProductos AS (
+    SELECT SUM(VD.Cantidad) AS SumaCantidadProductos
+    FROM VentaDetalle VD
+    JOIN Venta V ON VD.ID_Venta  = V.ID_Venta
+    WHERE V.Fecha >= '2023-05-14' 
+)
+SELECT Totales.SumaTotalVentas, CantidadProductos.SumaCantidadProductos
+FROM Totales, CantidadProductos
+
+/*El día y hora en que se realizó la venta con el monto más alto (y cuál es aquel monto) */
+SELECT TOP 1
+	v.Fecha
+FROM
+	Venta v
+WHERE
+    v.Fecha >= '2023-05-14'
+ORDER BY
+    v.Total DESC
+
+/*Indicar cuál es el producto con mayor monto total de ventas */
+/*¿Cuál es la marca con mayor margen de ganancias?*/
+SELECT TOP 1
+    P.ID_Producto ,
+    P.Nombre AS NombreProducto,
+    M.Nombre AS NombreMarca,
+    SUM(VD.TotalLinea) AS TotalSum
+FROM
+    VentaDetalle VD
+    INNER JOIN Producto P ON VD.ID_Producto  = P.ID_Producto
+    INNER JOIN Marca M ON P.ID_Marca  = M.ID_Marca
+    INNER JOIN Venta V ON VD.ID_Venta  = V.ID_Venta 
+WHERE
+    V.Fecha >= '2023-05-14'
+GROUP BY
+    P.ID_Producto ,
+    P.Nombre,
+    M.Nombre
+ORDER BY
+    TotalSum DESC
+    
+ /* Indicar el local con mayor monto de ventas. */
+SELECT TOP 1
+	v.ID_Local,
+	SUM(v.Total) as Total 
+FROM
+	Venta v
+WHERE
+    v.Fecha >= '2023-05-14'
+GROUP BY 
+	v.ID_Local
+ORDER BY
+    Total DESC 
+    
+
+/* ¿Cómo obtendrías cuál es el producto que más se vende en cada local?*/
+SELECT
+d.ID_Producto,
+d.NombreP,
+d.TotalSum,
+d.ID_Local
+FROM
+    (
+        SELECT
+            x.ID_Producto,
+            x.NombreP,
+            x.TotalSum,
+            x.ID_Local,
+            ROW_NUMBER() OVER (PARTITION BY x.ID_Local ORDER BY x.TotalSum DESC) AS rn
+        FROM
+            (
+                SELECT
+                    d.ID_Producto,
+                    p.Nombre AS NombreP,
+                    SUM(d.TotalLinea) AS TotalSum,
+                    v.ID_Local
+                FROM
+                    Venta v
+                INNER JOIN
+                    VentaDetalle d ON v.ID_Venta = d.ID_Venta
+                INNER JOIN
+                    Producto p ON d.ID_Producto = p.ID_Producto
+                GROUP BY
+                    d.ID_Producto,
+                    p.Nombre,
+                    v.ID_Local
+            ) x
+    ) d
+WHERE
+    d.rn = 1
